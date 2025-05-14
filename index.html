@@ -1,0 +1,279 @@
+```
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sudoku Game</title>
+<style>
+  /* Reset some default styles */
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #1e1e2f;
+    color: #f0f0f0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2rem;
+    min-height: 100vh;
+  }
+
+  h1 {
+    margin-bottom: 0.5rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: #82c0ff;
+  }
+
+  #sudoku-container {
+    display: grid;
+    grid-template-columns: repeat(9, 40px);
+    grid-template-rows: repeat(9, 40px);
+    gap: 1px;
+    background-color: #3060aa;
+    border: 4px solid #3060aa;
+    box-shadow: 0 0 8px #3a6fdc;
+  }
+
+  input.sudoku-cell {
+    width: 100%;
+    height: 100%;
+    text-align: center;
+    font-weight: 700;
+    font-size: 1.3rem;
+    background-color: #2a2a40;
+    border: none;
+    color: #d3d3d3;
+    outline: none;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  input.sudoku-cell:focus {
+    background-color: #4159b3;
+    color: #ffffff;
+  }
+
+  input.sudoku-cell.prefilled {
+    background-color: #4a4a72;
+    color: #82c0ff;
+    font-weight: 900;
+    cursor: default;
+  }
+
+  /* Thicker borders to separate 3x3 blocks */
+  input.sudoku-cell:nth-child(3n) {
+    border-right: 3px solid #3060aa;
+  }
+  input.sudoku-cell:nth-child(n+19):nth-child(-n+27),
+  input.sudoku-cell:nth-child(n+46):nth-child(-n+54) {
+    border-bottom: 3px solid #3060aa;
+  }
+
+  /* Grid lines between blocks - vertical */
+  #sudoku-container > input:nth-child(9n+1) {
+    border-left: 3px solid #3060aa;
+  }
+  /* Grid lines between blocks - horizontal */
+  #sudoku-container > input:nth-child(-n+9) {
+    border-top: 3px solid #3060aa;
+  }
+
+  /* Smaller gap between cells */
+  #sudoku-container > input {
+    border: 1px solid #5069b8;
+    border-radius: 4px;
+  }
+
+  /* Buttons */
+  #controls {
+    margin-top: 1rem;
+    display: flex;
+    gap: 1rem;
+  }
+
+  button {
+    background-color: #4169b3;
+    border: none;
+    color: white;
+    padding: 0.6rem 1.2rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 700;
+    box-shadow: 0 0 6px #3a6fdc99;
+    transition: background-color 0.3s ease;
+  }
+  button:hover {
+    background-color: #5a82cc;
+  }
+  button:active {
+    background-color: #2f4f87;
+  }
+
+  /* Error highlight */
+  input.sudoku-cell.error {
+    background-color: #c44c4c;
+    color: white;
+  }
+
+  /* Success message */
+  #message {
+    margin-top: 1rem;
+    font-weight: 700;
+    font-size: 1.2rem;
+    color: #82c0ff;
+    min-height: 1.2rem;
+  }
+</style>
+</head>
+<body>
+  <h1>Sudoku Game</h1>
+  <div id="sudoku-container"></div>
+  <div id="controls">
+    <button id="check-btn" title="Check your solution">Check</button>
+    <button id="reset-btn" title="Reset to initial puzzle">Reset</button>
+    <button id="solve-btn" title="Show solution">Solve</button>
+  </div>
+  <div id="message"></div>
+
+<script>
+  // Sample Sudoku puzzle with zeros denoting empty cells
+  const puzzle = [
+    5,3,0, 0,7,0, 0,0,0,
+    6,0,0, 1,9,5, 0,0,0,
+    0,9,8, 0,0,0, 0,6,0,
+
+    8,0,0, 0,6,0, 0,0,3,
+    4,0,0, 8,0,3, 0,0,1,
+    7,0,0, 0,2,0, 0,0,6,
+
+    0,6,0, 0,0,0, 2,8,0,
+    0,0,0, 4,1,9, 0,0,5,
+    0,0,0, 0,8,0, 0,7,9,
+  ];
+
+  // The solution for the above puzzle, used for the Solve button and validation
+  const solution = [
+    5,3,4, 6,7,8, 9,1,2,
+    6,7,2, 1,9,5, 3,4,8,
+    1,9,8, 3,4,2, 5,6,7,
+
+    8,5,9, 7,6,1, 4,2,3,
+    4,2,6, 8,5,3, 7,9,1,
+    7,1,3, 9,2,4, 8,5,6,
+
+    9,6,1, 5,3,7, 2,8,4,
+    2,8,7, 4,1,9, 6,3,5,
+    3,4,5, 2,8,6, 1,7,9,
+  ];
+
+  const container = document.getElementById('sudoku-container');
+  const message = document.getElementById('message');
+
+  // Create Sudoku grid inputs
+  function createGrid() {
+    container.innerHTML = '';
+    for (let i = 0; i < 81; i++) {
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.maxLength = '1';
+      input.className = 'sudoku-cell';
+      input.id = 'cell-' + i;
+      input.autocomplete = 'off';
+      input.inputMode = 'numeric';
+      input.pattern = '[1-9]';
+      input.title = 'Enter a number 1-9';
+
+      if (puzzle[i] !== 0) {
+        input.value = puzzle[i];
+        input.classList.add('prefilled');
+        input.disabled = true;
+      } else {
+        // Allow only digits 1-9 on input
+        input.addEventListener('input', (e) => {
+          let val = e.target.value;
+          if (!/^[1-9]$/.test(val)) {
+            e.target.value = '';
+          }
+          e.target.classList.remove('error');
+          message.textContent = '';
+        });
+      }
+
+      container.appendChild(input);
+    }
+  }
+
+  // Get current board values as array of numbers (0 if empty)
+  function getBoard() {
+    const board = [];
+    for (let i = 0; i < 81; i++) {
+      const val = document.getElementById('cell-' + i).value;
+      board.push(val === '' ? 0 : parseInt(val));
+    }
+    return board;
+  }
+
+  // Check if board is completely and correctly solved
+  // We will compare with the known solution
+  // Also highlight errors
+  function checkSolution() {
+    const board = getBoard();
+    let correct = true;
+    for (let i = 0; i < 81; i++) {
+      const cell = document.getElementById('cell-' + i);
+      cell.classList.remove('error');
+      if (board[i] === 0) {
+        correct = false;
+      } else if (board[i] !== solution[i]) {
+        cell.classList.add('error');
+        correct = false;
+      }
+    }
+    if (correct) {
+      message.textContent = 'Congratulations! You solved the puzzle correctly!';
+      message.style.color = '#4caf50'; // green
+    } else {
+      if (board.includes(0)) {
+        message.textContent = 'Some cells are empty or incorrect. Keep trying!';
+        message.style.color = '#ffcc00'; // yellow
+      } else {
+        message.textContent = 'Some numbers are incorrect. Please check highlighted cells.';
+        message.style.color = '#e04c4c'; // red
+      }
+    }
+  }
+
+  // Reset the board to initial puzzle values
+  function resetBoard() {
+    createGrid();
+    message.textContent = '';
+  }
+
+  // Fill the board with the solution
+  function solveBoard() {
+    for (let i = 0; i < 81; i++) {
+      const cell = document.getElementById('cell-' + i);
+      cell.value = solution[i];
+      cell.classList.remove('error');
+    }
+    message.textContent = 'Solution revealed.';
+    message.style.color = '#82c0ff';
+  }
+
+  // Keyboard navigation and input improvements can be added here (optional)
+
+  document.getElementById('check-btn').addEventListener('click', checkSolution);
+  document.getElementById('reset-btn').addEventListener('click', resetBoard);
+  document.getElementById('solve-btn').addEventListener('click', solveBoard);
+
+  // Initialize
+  createGrid();
+</script>
+</body>
+</html>
+```
